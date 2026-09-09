@@ -123,7 +123,8 @@ export default function ProgramControl({
           <p style={styles.confirmText}>
             <AlertTriangle size={15} color="#e0a458" style={{ flexShrink: 0, marginTop: "2px" }} />
             <span>
-              This wipes your current progress and activates Day 1 right now.
+              This wipes your current progress back to Day 1. Your next
+              check-in — today or whenever you're ready — will be Day 1.
               Are you sure?
             </span>
           </p>
