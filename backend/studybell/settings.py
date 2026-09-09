@@ -116,6 +116,7 @@ USE_I18N = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://myschedule.169-58-244-210.sslip.io"
 ]
 
 USE_TZ = True

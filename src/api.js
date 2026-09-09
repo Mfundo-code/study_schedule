@@ -1,4 +1,4 @@
-const BASE_URL = "http://127.0.0.1:8000/api";
+const BASE_URL = "http://myschedule.169-58-244-210.sslip.io/api";
 
 function todayLocalISO() {
   const d = new Date();
