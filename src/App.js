@@ -13,11 +13,7 @@ import ProgramControl from "./components/ProgramControl";
 import ScheduleList from "./components/ScheduleList";
 import AlarmOverlay from "./components/AlarmOverlay";
 import { ensureButtonStyles } from "./buttonStyles";
-
-function toMinutes(hhmm) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
+import { findCurrentBlock } from "./scheduleTime";
 
 function nowKey(dateISO, block) {
   return `studybell:${dateISO}:${block.time}:${block.title}`;
@@ -81,13 +77,15 @@ export default function App() {
     if (status !== "active" || !soundEnabled || activeAlarm) return;
     if (snoozedUntil && Date.now() < snoozedUntil) return;
 
-    const due = blocks.find((b) => {
-      if (!b.ring) return false;
-      if (nowMinutes < toMinutes(b.time)) return false;
-      return !localStorage.getItem(nowKey(dateISO, b));
-    });
+    // Only ever consider the ONE block whose time window contains right
+    // now -- never scan for older unaccepted blocks. That's what stops
+    // the alarm from firing back-to-back through a backlog the moment
+    // one gets accepted.
+    const current = findCurrentBlock(blocks, nowMinutes);
+    if (!current || !current.ring) return;
+    if (localStorage.getItem(nowKey(dateISO, current))) return;
 
-    if (due) setActiveAlarm(due);
+    setActiveAlarm(current);
   }, [status, blocks, nowMinutes, soundEnabled, activeAlarm, snoozedUntil, dateISO]);
 
   function enableSound() {

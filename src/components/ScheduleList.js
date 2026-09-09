@@ -2,28 +2,11 @@ import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import BlockRow from "./BlockRow";
 import { categorize } from "../categorize";
-
-function toMinutes(hhmm) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function findCurrent(blocks, nowMinutes) {
-  let current = null;
-  for (let i = 0; i < blocks.length; i++) {
-    const start = toMinutes(blocks[i].time);
-    const end = i + 1 < blocks.length ? toMinutes(blocks[i + 1].time) : 24 * 60;
-    if (nowMinutes >= start && nowMinutes < end) {
-      current = blocks[i];
-      break;
-    }
-  }
-  return current;
-}
+import { toMinutes, findCurrentBlock } from "../scheduleTime";
 
 export default function ScheduleList({ dayNumber, review, blocks, nowMinutes }) {
   const [expanded, setExpanded] = useState(false);
-  const current = findCurrent(blocks, nowMinutes);
+  const current = findCurrentBlock(blocks, nowMinutes);
   const currentCat = current ? categorize(current.title) : null;
 
   return (
