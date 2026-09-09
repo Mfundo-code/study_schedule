@@ -120,7 +120,16 @@ class CancelScheduleView(View):
 class ResetView(View):
     """Start the whole 15-day program over -- and immediately activate
     today as Day 1, so the person sees it happen rather than having to
-    check in again separately."""
+    check in again separately.
+
+    Uses the same client-supplied date as CheckinView/TodayView, rather
+    than the server's system clock. Mixing clocks here is what let the
+    activated "today" silently diverge from what the browser considers
+    today (e.g. near midnight or across timezones) -- the next refresh
+    would then find last_active_date != today and fall back to idle,
+    showing next_day_number already bumped to 2 instead of the Day 1
+    that was just activated.
+    """
 
     def post(self, request):
         state = get_state()
@@ -129,7 +138,12 @@ class ResetView(View):
         state.scheduled_next_date = None
         state.save()
 
-        today = date.today()
+        date_str = _body(request).get("date")
+        try:
+            today = date.fromisoformat(date_str) if date_str else date.today()
+        except ValueError:
+            return JsonResponse({"error": "date must be YYYY-MM-DD"}, status=400)
+
         if today.weekday() == 6:  # Sunday -- stay silent, don't auto-activate
             return JsonResponse({"status": "sunday"})
         return JsonResponse(perform_checkin(state, today))

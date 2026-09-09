@@ -47,7 +47,17 @@ export async function cancelSchedule() {
 }
 
 export async function resetProgram() {
-  return handle(await fetch(`${BASE_URL}/reset/`, { method: "POST" }));
+  return handle(
+    await fetch(`${BASE_URL}/reset/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Reset must activate "today" using the same clock every other
+      // endpoint uses (the browser's), not the server's system clock --
+      // otherwise a server/client timezone or midnight-boundary mismatch
+      // makes the activated day silently not match what you see.
+      body: JSON.stringify({ date: todayLocalISO() }),
+    })
+  );
 }
 
 export { todayLocalISO };

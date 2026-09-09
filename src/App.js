@@ -97,6 +97,16 @@ export default function App() {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
+
+    // Whatever block is already in progress at the moment sound gets
+    // turned on should NOT immediately ring -- only blocks that *start*
+    // after arming should trigger the alarm. Mark the current block (if
+    // any) as already-seen so the effect above skips it.
+    const current = findCurrentBlock(blocks, nowMinutes);
+    if (current && current.ring) {
+      localStorage.setItem(nowKey(dateISO, current), "1");
+    }
+
     setSoundEnabled(true);
   }
 
