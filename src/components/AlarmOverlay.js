@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { ensureButtonStyles } from "../buttonStyles";
 
 
 function ringOnce(audioCtx) {
@@ -21,6 +22,7 @@ export default function AlarmOverlay({ block, audioCtx, onAccept, onSnooze }) {
   const intervalRef = useRef(null);
 
   useEffect(() => {
+    ensureButtonStyles();
     if (!audioCtx) return undefined;
 
     ringOnce(audioCtx);
@@ -59,10 +61,10 @@ export default function AlarmOverlay({ block, audioCtx, onAccept, onSnooze }) {
         </div>
 
         <div style={styles.buttonRow}>
-          <button type="button" style={styles.snoozeBtn} onClick={onSnooze}>
+          <button type="button" className="sb-btn" style={styles.snoozeBtn} onClick={onSnooze}>
             Snooze 5 min
           </button>
-          <button type="button" style={styles.acceptBtn} onClick={onAccept}>
+          <button type="button" className="sb-btn" style={styles.acceptBtn} onClick={onAccept}>
             I'm ready
           </button>
         </div>

@@ -1,5 +1,5 @@
 from django.contrib import admin
 
-from .models import ProgramSettings
+from .models import ProgramState
 
-admin.site.register(ProgramSettings)
+admin.site.register(ProgramState)

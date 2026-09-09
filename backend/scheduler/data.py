@@ -1,10 +1,9 @@
 """
-Schedule data and date-resolution logic.
+Schedule data and check-in-driven progress logic.
 
 This is the single source of truth for the 15-day rotation. The frontend
 never hardcodes subjects or times -- it always asks the API for them.
 """
-from datetime import timedelta
 
 GRK = "Greek"
 OT = "OT Survey"
@@ -93,33 +92,72 @@ def build_blocks(day):
     return [{"time": t, "title": title, "ring": ring} for t, title, ring in rows]
 
 
-def resolve_day(start_date, target_date):
-    """Map a calendar date to a program day number, skipping Sundays.
-
-    Sundays are always rest -- no day is assigned to them, and whatever
-    day would have landed on a Sunday shifts to the next day instead.
-    """
-    if target_date < start_date:
-        return {"status": "before"}
-
-    cursor = start_date
-    day_num = 0
-    for _ in range(90):
-        if cursor.weekday() != 6:  # Monday=0 ... Sunday=6
-            day_num += 1
-            if cursor == target_date:
-                if day_num <= 15:
-                    return {"status": "day", "day_number": day_num}
-                return {"status": "done"}
-            if day_num >= 15:
-                return {"status": "done"} if target_date > cursor else {"status": "before"}
-        else:
-            if cursor == target_date:
-                return {"status": "sunday"}
-        cursor += timedelta(days=1)
-
-    return {"status": "done"}
-
-
 def get_day(day_number):
     return next(d for d in DAYS if d["n"] == day_number)
+
+
+def day_payload(day_number):
+    day = get_day(day_number)
+    return {
+        "day_number": day_number,
+        "review": day.get("review", False),
+        "blocks": build_blocks(day),
+    }
+
+
+def get_today_status(state, today):
+    """Read-only: what should today look like, given the current state?
+
+    Does NOT mutate anything -- 'ready_to_start' means the caller should
+    call perform_checkin() to actually activate it (auto-fulfilling a
+    pre-scheduled date).
+    """
+    if today.weekday() == 6:  # Sunday
+        return {"status": "sunday"}
+
+    if state.last_active_date == today:
+        result = {"status": "active"}
+        result.update(day_payload(state.next_day_number - 1))
+        return result
+
+    if state.scheduled_next_date == today:
+        return {"status": "ready_to_start"}
+
+    if state.next_day_number > 15:
+        return {"status": "done"}
+
+    return {
+        "status": "idle",
+        "next_day_number": state.next_day_number,
+        "scheduled_next_date": (
+            state.scheduled_next_date.isoformat() if state.scheduled_next_date else None
+        ),
+        "last_active_date": (
+            state.last_active_date.isoformat() if state.last_active_date else None
+        ),
+    }
+
+
+def perform_checkin(state, today):
+    """Mutating: activate today. Idempotent if already active today.
+    Advances next_day_number and clears any pending schedule."""
+    if today.weekday() == 6:
+        return {"status": "sunday"}
+
+    if state.last_active_date == today:
+        result = {"status": "active"}
+        result.update(day_payload(state.next_day_number - 1))
+        return result
+
+    if state.next_day_number > 15:
+        return {"status": "done"}
+
+    day_number = state.next_day_number
+    state.next_day_number += 1
+    state.last_active_date = today
+    state.scheduled_next_date = None
+    state.save()
+
+    result = {"status": "active"}
+    result.update(day_payload(day_number))
+    return result

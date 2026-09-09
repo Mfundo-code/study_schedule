@@ -1,8 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { getSettings, postSettings, getToday } from "./api";
-import SettingsPanel from "./components/SettingsPanel";
+import { Settings, Volume2, BellRing } from "lucide-react";
+import {
+  getToday,
+  getState,
+  checkin,
+  scheduleNext,
+  cancelSchedule,
+  resetProgram,
+  todayLocalISO,
+} from "./api";
+import ProgramControl from "./components/ProgramControl";
 import ScheduleList from "./components/ScheduleList";
 import AlarmOverlay from "./components/AlarmOverlay";
+import { ensureButtonStyles } from "./buttonStyles";
 
 function toMinutes(hhmm) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -14,30 +24,39 @@ function nowKey(dateISO, block) {
 }
 
 export default function App() {
-  const [status, setStatus] = useState("loading"); // loading | not_configured | before | sunday | day | done
+  const [status, setStatus] = useState("loading"); // loading | idle | active | sunday | done
   const [dayNumber, setDayNumber] = useState(null);
   const [review, setReview] = useState(false);
   const [blocks, setBlocks] = useState([]);
-  const [dateISO, setDateISO] = useState(null);
-  const [startDate, setStartDate] = useState(null);
+  const [progress, setProgress] = useState({
+    next_day_number: 1,
+    scheduled_next_date: null,
+    last_active_date: null,
+  });
   const [nowMinutes, setNowMinutes] = useState(0);
   const [activeAlarm, setActiveAlarm] = useState(null);
   const [snoozedUntil, setSnoozedUntil] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [controlOpen, setControlOpen] = useState(false);
   const audioCtxRef = useRef(null);
+  const dateISO = todayLocalISO();
+
+  useEffect(() => {
+    ensureButtonStyles();
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await getToday();
-      setStatus(data.status);
-      setDateISO(data.date);
-      setStartDate(data.start_date || null);
-      if (data.status === "day") {
-        setDayNumber(data.day_number);
-        setReview(!!data.review);
-        setBlocks(data.blocks);
+      const [today, state] = await Promise.all([getToday(), getState()]);
+      setStatus(today.status);
+      if (today.status === "active") {
+        setDayNumber(today.day_number);
+        setReview(!!today.review);
+        setBlocks(today.blocks);
       }
+      setProgress(state);
       setError("");
     } catch (err) {
       setError("Couldn't reach the backend. Is Django running on port 8000?");
@@ -58,16 +77,14 @@ export default function App() {
     return () => clearInterval(clock);
   }, []);
 
-  // Decide whether a block is due right now and hasn't been accepted yet.
   useEffect(() => {
-    if (status !== "day" || !soundEnabled || activeAlarm) return;
+    if (status !== "active" || !soundEnabled || activeAlarm) return;
     if (snoozedUntil && Date.now() < snoozedUntil) return;
 
     const due = blocks.find((b) => {
       if (!b.ring) return false;
       if (nowMinutes < toMinutes(b.time)) return false;
-      const key = nowKey(dateISO, b);
-      return !localStorage.getItem(key);
+      return !localStorage.getItem(nowKey(dateISO, b));
     });
 
     if (due) setActiveAlarm(due);
@@ -86,9 +103,7 @@ export default function App() {
   }
 
   function acceptAlarm() {
-    if (activeAlarm) {
-      localStorage.setItem(nowKey(dateISO, activeAlarm), "1");
-    }
+    if (activeAlarm) localStorage.setItem(nowKey(dateISO, activeAlarm), "1");
     setActiveAlarm(null);
     setSnoozedUntil(null);
   }
@@ -98,65 +113,93 @@ export default function App() {
     setSnoozedUntil(Date.now() + 5 * 60 * 1000);
   }
 
-  async function handleSaveStartDate(startDateISO) {
-    await postSettings(startDateISO);
-    await refresh();
+  async function runAction(fn) {
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+      await refresh();
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
   }
+
+  const controlProps = {
+    nextDayNumber: progress.next_day_number,
+    scheduledNextDate: progress.scheduled_next_date,
+    lastActiveDate: progress.last_active_date,
+    busy,
+    onCheckin: () => runAction(checkin),
+    onScheduleNext: (date) => runAction(() => scheduleNext(date)),
+    onCancelSchedule: () => runAction(cancelSchedule),
+    onReset: () => runAction(resetProgram),
+  };
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
-          <h1 style={styles.appTitle}>StudyBell</h1>
-          <p style={styles.appSubtitle}>Rings until you accept. Stays quiet on Sundays.</p>
+          <div>
+            <h1 style={styles.appTitle}>StudyBell</h1>
+            <p style={styles.appSubtitle}>You tell it when a day happens. It never assumes.</p>
+          </div>
+          {status === "active" && (
+            <button
+              type="button"
+              className="sb-btn"
+              style={styles.iconBtn}
+              onClick={() => setControlOpen(true)}
+              aria-label="Program control"
+            >
+              <Settings size={19} color="#8fa1c4" />
+            </button>
+          )}
         </header>
 
         {error && <p style={styles.errorBanner}>{error}</p>}
 
         {!soundEnabled && status !== "loading" && (
-          <button type="button" style={styles.enableBtn} onClick={enableSound}>
+          <button type="button" className="sb-btn" style={styles.enableBtn} onClick={enableSound}>
+            <Volume2 size={16} />
             Turn on alarm sound
           </button>
+        )}
+        {soundEnabled && status === "active" && (
+          <p style={styles.soundOnHint}>
+            <BellRing size={13} /> Alarms are armed for today
+          </p>
         )}
 
         {status === "loading" && <p style={styles.muted}>Loading…</p>}
 
-        {status === "not_configured" && (
-          <SettingsPanel onSave={handleSaveStartDate} existingStartDate={null} />
-        )}
-
-        {status === "before" && (
-          <p style={styles.muted}>Your program starts on {startDate}. Come back then.</p>
-        )}
-
         {status === "sunday" && (
-          <p style={styles.muted}>It's Sunday — no sessions today. Rest.</p>
-        )}
-
-        {status === "done" && (
-          <div style={styles.doneWrap}>
-            <p style={styles.muted}>You've completed all 15 days.</p>
-            <SettingsPanel onSave={handleSaveStartDate} existingStartDate={startDate} />
+          <div style={styles.sundayCard}>
+            <p style={styles.sundayTitle}>Sunday — no sessions today</p>
+            <p style={styles.muted}>Rest. Everything resumes tomorrow.</p>
           </div>
         )}
 
-        {status === "day" && (
-          <>
-            <ScheduleList
-              dayNumber={dayNumber}
-              review={review}
-              blocks={blocks}
-              nowMinutes={nowMinutes}
-            />
-            <details style={styles.settingsDetails}>
-              <summary style={styles.settingsSummary}>Change start date</summary>
-              <div style={{ marginTop: "12px" }}>
-                <SettingsPanel onSave={handleSaveStartDate} existingStartDate={startDate} />
-              </div>
-            </details>
-          </>
+        {(status === "idle" || status === "done") && <ProgramControl {...controlProps} />}
+
+        {status === "active" && (
+          <ScheduleList
+            dayNumber={dayNumber}
+            review={review}
+            blocks={blocks}
+            nowMinutes={nowMinutes}
+          />
         )}
       </div>
+
+      {controlOpen && (
+        <div style={styles.modalBackdrop} onClick={() => setControlOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <ProgramControl {...controlProps} onClose={() => setControlOpen(false)} />
+          </div>
+        </div>
+      )}
 
       <AlarmOverlay
         block={activeAlarm}
@@ -181,17 +224,25 @@ const styles = {
     padding: "32px 20px 60px",
   },
   header: {
-    marginBottom: "20px",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "18px",
   },
-  appTitle: {
-    margin: 0,
-    fontSize: "22px",
-    fontWeight: 700,
-  },
-  appSubtitle: {
-    margin: "4px 0 0",
-    fontSize: "14px",
-    color: "#8fa1c4",
+  appTitle: { margin: 0, fontSize: "23px", fontWeight: 800, letterSpacing: "-0.01em" },
+  appSubtitle: { margin: "4px 0 0", fontSize: "13.5px", color: "#8fa1c4" },
+  iconBtn: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "10px",
+    border: "1px solid #1e2636",
+    background: "#0f1622",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
   },
   errorBanner: {
     background: "rgba(226, 96, 96, 0.12)",
@@ -203,6 +254,9 @@ const styles = {
     marginBottom: "16px",
   },
   enableBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
     marginBottom: "20px",
     padding: "10px 16px",
     borderRadius: "8px",
@@ -212,21 +266,30 @@ const styles = {
     fontSize: "14px",
     cursor: "pointer",
   },
-  muted: {
-    color: "#8fa1c4",
-    fontSize: "14px",
-  },
-  doneWrap: {
+  soundOnHint: {
     display: "flex",
-    flexDirection: "column",
-    gap: "16px",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "12.5px",
+    color: "#6fbf73",
+    margin: "0 0 16px",
   },
-  settingsDetails: {
-    marginTop: "16px",
-    fontSize: "13px",
-    color: "#8fa1c4",
+  muted: { color: "#8fa1c4", fontSize: "14px", margin: 0 },
+  sundayCard: {
+    background: "#0f1622",
+    border: "1px solid #1e2636",
+    borderRadius: "14px",
+    padding: "22px",
   },
-  settingsSummary: {
-    cursor: "pointer",
+  sundayTitle: { margin: "0 0 4px", fontSize: "16px", fontWeight: 700, color: "#eef1f6" },
+  modalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(6, 9, 15, 0.75)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    zIndex: 900,
   },
 };
