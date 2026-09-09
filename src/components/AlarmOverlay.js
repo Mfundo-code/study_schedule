@@ -23,7 +23,12 @@ export default function AlarmOverlay({ block, audioCtx, onAccept, onSnooze }) {
 
   useEffect(() => {
     ensureButtonStyles();
-    if (!audioCtx) return undefined;
+    // Guard on BOTH audioCtx and block. audioCtx becomes truthy the
+    // moment sound is turned on in App.js -- well before any alarm is
+    // actually due. Without also checking `block` here, this effect
+    // would start ringing immediately (and forever, via the interval
+    // below) any time sound is enabled, even with no alarm active.
+    if (!audioCtx || !block) return undefined;
 
     ringOnce(audioCtx);
     intervalRef.current = setInterval(() => ringOnce(audioCtx), 1600);
