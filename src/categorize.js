@@ -27,14 +27,14 @@ const CATEGORIES = {
 export function categorize(title) {
   const t = title.toLowerCase();
   if (t.startsWith("wake")) return CATEGORIES.wake;
-  if (t.startsWith("break")) return CATEGORIES.break;
+  if (t.startsWith("break:") || t.startsWith("break and") || t === "break") return CATEGORIES.break;
   if (t.includes("breakfast") || t.includes("lunch") || t.includes("dinner")) return CATEGORIES.meal;
   if (t.includes("software development")) return CATEGORIES.dev;
   if (t.startsWith("applied work")) return CATEGORIES.applied;
-  if (t.includes("movement") || t.includes("exercise")) return CATEGORIES.movement;
-  if (t.includes("your wife")) return CATEGORIES.wife;
-  if (t.startsWith("review") || t.includes("review &")) return CATEGORIES.review;
-  if (t.includes("wind-down") || t.startsWith("sleep")) return CATEGORIES.sleep;
-  if (t.startsWith("power nap")) return CATEGORIES.sleep;
-  return CATEGORIES.study; // Greek, OT/NT/Hermeneutics/Church History/Pastoral Ministry, review blocks
+  if (t.includes("my wife") || t.includes("your wife")) return CATEGORIES.wife;
+  if (t.includes("movement") || t.includes("exercise") || t.includes("house work")) return CATEGORIES.movement;
+  if (t.includes("review")) return CATEGORIES.review;
+  if (t.includes("wind-down") || t.startsWith("sleep") || t.startsWith("power nap") || t.startsWith("rest"))
+    return CATEGORIES.sleep;
+  return CATEGORIES.study; // Greek, OT/NT/Hermeneutics/Church History/Pastoral
 }

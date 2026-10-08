@@ -22,7 +22,7 @@ export default function BlockRow({ block, state }) {
           <Icon size={16} color={color} />
         )}
       </div>
-      <span style={styles.time}>{block.time}</span>
+      <span style={styles.time}>{block.end ? `${block.time} to ${block.end}` : block.time}</span>
       <span style={styles.title}>{block.title}</span>
       {state === "current" && (
         <span style={{ ...styles.badge, background: color }}>now</span>
@@ -50,7 +50,7 @@ const styles = {
     flexShrink: 0,
   },
   time: {
-    width: "50px",
+    width: "92px",
     flexShrink: 0,
     fontSize: "12.5px",
     color: "#8fa1c4",

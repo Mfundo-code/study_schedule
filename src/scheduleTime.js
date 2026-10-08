@@ -1,24 +1,24 @@
-// Shared time-window logic used by both the alarm trigger (App.js) and
-// the schedule display (ScheduleList.js), so they always agree on what
-// "current" means and never drift apart.
+// Shared time-window logic used by the alarm trigger (App.js), the
+// schedule display (ScheduleList.js) and the timer (TimerOverlay.js), so
+// they always agree on what "current" means.
 
 export function toMinutes(hhmm) {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
 
-// Returns the single block whose time window [start, nextStart) contains
-// nowMinutes -- or null if none does (e.g. before 03:30). Only ever one
-// block can be "current" at a time; this is deliberate -- it's what stops
-// the alarm from firing for a backlog of missed earlier blocks the moment
-// one gets accepted.
-export function findCurrentBlock(blocks, nowMinutes) {
+// Index of the single block whose window [start, nextStart) contains
+// nowMinutes, or -1 if none does (e.g. before 03:30).
+export function findCurrentIndex(blocks, nowMinutes) {
   for (let i = 0; i < blocks.length; i++) {
     const start = toMinutes(blocks[i].time);
     const end = i + 1 < blocks.length ? toMinutes(blocks[i + 1].time) : 24 * 60;
-    if (nowMinutes >= start && nowMinutes < end) {
-      return blocks[i];
-    }
+    if (nowMinutes >= start && nowMinutes < end) return i;
   }
-  return null;
+  return -1;
+}
+
+export function findCurrentBlock(blocks, nowMinutes) {
+  const i = findCurrentIndex(blocks, nowMinutes);
+  return i === -1 ? null : blocks[i];
 }

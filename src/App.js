@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Settings, Volume2, BellRing } from "lucide-react";
+import { Settings, Volume2, BellRing, Timer } from "lucide-react";
 import {
   getToday,
   getState,
@@ -12,6 +12,8 @@ import {
 import ProgramControl from "./components/ProgramControl";
 import ScheduleList from "./components/ScheduleList";
 import AlarmOverlay from "./components/AlarmOverlay";
+import TimerOverlay from "./components/TimerOverlay";
+import SCHEDULE from "./scheduleData";
 import { ensureButtonStyles } from "./buttonStyles";
 import { findCurrentBlock } from "./scheduleTime";
 
@@ -36,6 +38,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [controlOpen, setControlOpen] = useState(false);
+  const [timerOpen, setTimerOpen] = useState(false);
   const audioCtxRef = useRef(null);
   const dateISO = todayLocalISO();
 
@@ -50,7 +53,9 @@ export default function App() {
       if (today.status === "active") {
         setDayNumber(today.day_number);
         setReview(!!today.review);
-        setBlocks(today.blocks);
+        // The schedule comes from the doc (scheduleData.js); the backend
+        // only decides which day it is.
+        setBlocks(SCHEDULE[today.day_number] || today.blocks);
       }
       setProgress(state);
       setError("");
@@ -180,6 +185,13 @@ export default function App() {
           </p>
         )}
 
+        {status === "active" && (
+          <button type="button" className="sb-btn" style={styles.timerBtn} onClick={() => setTimerOpen(true)}>
+            <Timer size={16} />
+            Show timer
+          </button>
+        )}
+
         {status === "loading" && <p style={styles.muted}>Loading…</p>}
 
         {status === "sunday" && (
@@ -207,6 +219,10 @@ export default function App() {
             <ProgramControl {...controlProps} onClose={() => setControlOpen(false)} />
           </div>
         </div>
+      )}
+
+      {timerOpen && status === "active" && (
+        <TimerOverlay blocks={blocks} onHide={() => setTimerOpen(false)} />
       )}
 
       <AlarmOverlay
@@ -271,6 +287,19 @@ const styles = {
     border: "1px solid #2c3a56",
     background: "#141d2c",
     color: "#eef1f6",
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+  timerBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "20px",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    border: "1px solid #c9a15c",
+    background: "#241d10",
+    color: "#e3c98d",
     fontSize: "14px",
     cursor: "pointer",
   },
