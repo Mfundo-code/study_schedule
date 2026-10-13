@@ -33,10 +33,10 @@ function buildDay(d) {
     [120, first ? "Greek: grammar" : "Greek: vocabulary & grammar drill"],
     [30, first ? "Breakfast and tea" : second ? "Breakfast" : "Breakfast (with my wife if your schedules line up)"],
     [120, d.a],
-    [10, "Break: stretch, water"],
+    [5, "Break: stretch, water"],
     [120, d.n === 15 ? "Rest: no ministry or development work today" : "Pastoral Ministry: sermon & Bible study preparation"],
     [
-      40,
+      30,
       first
         ? "Lunch + short walk outside or garden making, cleaning or any house work"
         : second
@@ -44,15 +44,15 @@ function buildDay(d) {
         : "Lunch + short walk outside",
     ],
     [120, first ? "Software Development projects" : "Software Development"],
-    [10, "Break: water, stretch"],
+    [5, "Break: water, stretch"],
     [120, d.b],
-    [10, "Break"],
+    [5, "Break"],
     [120, d.c],
-    [30, first ? "Movement / house duties" : "Movement / exercise"],
-    [40, early ? "Dinner" : "Dinner (with my wife)"],
-    [30, "Help my wife with house chores there and there"],
-    [45, "Time with my wife: protected, no study or work"],
-    [25, "Wind-down, prayer, no screens, prepare for bed"],
+    [20, first ? "Movement / house duties" : "Movement / exercise"],
+    [30, early ? "Dinner" : "Dinner (with my wife)"],
+    [90, "Greek paradigms and vocab"],
+    [35, "Time with my wife: protected, no study or work"],
+    [20, "Wind-down, prayer, no screens, prepare for bed"],
     [null, `Sleep (7 hrs to ${START})`],
   ]);
 }
